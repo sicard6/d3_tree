@@ -13,7 +13,7 @@ export default class Tree extends Component {
     this.drawTree();
   }
 
-  componentWillReceiveProps() {
+  componentDidUpdate() {
     this.updateTree();
   }
 
@@ -34,13 +34,16 @@ export default class Tree extends Component {
       this.props.lastNode,
       1,
       this.state.width / 2,
+      null,
       null
     );
   };
 
-  paintnode(svg, tree, lastNode, level, xPos, parent) {
+  paintnode(svg, tree, lastNode, level, xPos, parent, parentPos) {
     if (tree.data !== undefined) {
       let idnodes = d3.select(`#${tree.data.name}`);
+      let idnodesLine = d3.select(`#${tree.data.name}-line`);
+      let idNodestxt = d3.select(`#${tree.data.name}-txt`);
       let actualNode = idnodes._groups[0][0];
       if (actualNode === null) {
         if (parent !== null) {
@@ -51,6 +54,7 @@ export default class Tree extends Component {
             .attr("x1", parentNode.cx.baseVal.value)
             .attr("y1", parentNode.cy.baseVal.value)
             .attr("x2", this.state.width / 2)
+            .attr("id", `${tree.data.name}-line`)
             .attr("y2", 50)
             .style("stroke-width", 2)
             .style("stroke", "black");
@@ -82,7 +86,8 @@ export default class Tree extends Component {
           .append("text")
           .attr("x", this.state.width / 2 - 10)
           .attr("y", 50 + 20)
-          .text(tree.data.name);
+          .attr("id", `${tree.data.name}-txt`)
+          .text(`${tree.data.name} - ${tree.data.num}`);
         txt
           .transition()
           .attr("x", xPos - 10)
@@ -93,19 +98,89 @@ export default class Tree extends Component {
         idnodes
           .transition()
           .style("fill", "steelblue")
-          .duration(1000);
+          .duration(1000)
+          .attr("cx", xPos)
+          .attr("cy", 50 * level)
+          .ease(d3.easeElastic)
+          .duration(4000);
+
+        idNodestxt
+          .transition()
+          .attr("x", xPos - 10)
+          .attr("y", 50 * level + 20)
+          .ease(d3.easeElastic)
+          .duration(4000);
+
         let Xoffset = 1 / 2 ** (level + 1);
         let Xposder = Xoffset * this.state.width + xPos;
         let Xposizq = xPos - Xoffset * this.state.width;
 
-        this.paintnode(svg, tree.left, lastNode, level + 1, Xposizq, tree.data);
+        if (parent !== null && Object.keys(lastNode).length === 0) {
+          if (parentPos) {
+            idnodesLine
+              .transition()
+              .style("stroke-opacity", "0")
+              .duration(100)
+              .on("end", () => {
+                idnodesLine
+                  .transition()
+                  .attr("x1", xPos - this.state.width * (1 / 2 ** level))
+                  .attr("y1", 50 * (level - 1))
+                  .attr("x2", xPos - this.state.width * (1 / 2 ** level))
+                  .attr("y2", 50 * (level - 1))
+                  .duration(3900)
+                  .on("end", () => {
+                    idnodesLine
+                      .transition()
+                      .attr("x2", xPos)
+                      .attr("y2", 50 * level)
+                      .style("stroke-opacity", "1")
+                      .ease(d3.easeExp)
+                      .duration(2000);
+                  });
+              });
+          } else {
+            idnodesLine
+              .transition()
+              .style("stroke-opacity", "0")
+              .duration(100)
+              .on("end", () => {
+                idnodesLine
+                  .transition()
+                  .attr("x1", this.state.width * (1 / 2 ** level) + xPos)
+                  .attr("y1", 50 * (level - 1))
+                  .attr("x2", this.state.width * (1 / 2 ** level) + xPos)
+                  .attr("y2", 50 * (level - 1))
+                  .duration(3900)
+                  .on("end", () => {
+                    idnodesLine
+                      .transition()
+                      .attr("x2", xPos)
+                      .attr("y2", 50 * level)
+                      .style("stroke-opacity", "1")
+                      .ease(d3.easeExp)
+                      .duration(2000);
+                  });
+              });
+          }
+        }
+        this.paintnode(
+          svg,
+          tree.left,
+          lastNode,
+          level + 1,
+          Xposizq,
+          tree.data,
+          false
+        );
         this.paintnode(
           svg,
           tree.right,
           lastNode,
           level + 1,
           Xposder,
-          tree.data
+          tree.data,
+          true
         );
       }
     }
